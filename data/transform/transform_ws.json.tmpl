@@ -1,0 +1,18 @@
+[{{ $length := len .data }}{{ $index := 0 }}
+{{ range .data }}
+  {{ $index = add $index 1 }}
+  {{ if eq .type "workspaces" }}
+{
+  "external_id": "{{ .id }}",
+  "parent_external_id": "{{ .relationships.organization.data.id }}",
+  "name": "{{ .attributes.name }}",
+  "terraform_version": "{{ index .attributes "terraform-version" }}",
+  "created_at": "{{ index .attributes "created-at" }}",
+  "updated_at": "{{ index .attributes "updated-at" }}",
+  "working_directory": "{{ index .attributes "working-directory" }}",
+  "execution_mode": "{{ index .attributes "execution-mode" }}",
+  "vcs_repo": "{{ index .attributes "vcs-repo-identifier" }}"
+}{{ if lt $index $length }},{{ end }}
+  {{ end }}
+{{ end }}
+]

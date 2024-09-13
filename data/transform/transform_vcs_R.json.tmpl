@@ -1,0 +1,11 @@
+[{{ $length := len .data }}{{ $index := 0 }}
+{{ range .data }}
+  {{ $index = add $index 1 }}
+  {{ if eq .type "workspaces"}}
+{
+  "b_id": "{{ .id }}",
+  "a_id": "{{ index .attributes "vcs-repo" "repository-http-url" }}-{{ or (index .attributes "vcs-repo" "branch") "main" }}"
+}{{ if lt $index $length }},{{ end }}
+  {{ end }}
+{{ end }}
+]
