@@ -1,0 +1,12 @@
+[{{ $length := len .buckets }}{{ $index := 0 }}
+{{ range $bucketIndex, $bucket := .buckets }}
+  {{ $length2 := len $bucket.latest_version.builds }}
+  {{ range $buildIndex, $build := $bucket.latest_version.builds }}
+  {
+    "external_id": "{{ index $build "id" }}",
+    "created_at": "{{ index $build "created_at" }}",
+    "updated_at": "{{ index $build "updated_at" }}"
+  }{{ if or (ne $buildIndex (sub $length2 1)) (ne $bucketIndex (sub $length 1)) }},{{ end }}
+  {{ end }}
+{{ end }}
+]

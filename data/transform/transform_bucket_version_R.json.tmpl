@@ -1,0 +1,8 @@
+[{{ $length := len .buckets }}{{ $index := 0 }}
+{{ range $bucketIndex, $bucket := .buckets }}
+  {
+    "a_id": "{{ index $bucket "id" }}",
+    "b_id": "{{ index $bucket.latest_version "id" }}"
+  } {{ if ne $bucketIndex (sub $length 1) }},{{ end }}
+{{ end }}
+]

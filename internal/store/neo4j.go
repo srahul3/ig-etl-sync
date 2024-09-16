@@ -52,7 +52,7 @@ func (s *neo4jStore) Setup() error {
 }
 
 func (s *neo4jStore) createIndex(req *model.WriteRequest) error {
-	if req.IntegrationItem.Function == CREATE_RELATION {
+	if req.Function.Type == CREATE_RELATION {
 		tx, err := s.session.BeginTransaction()
 		if err != nil {
 			return err
@@ -60,14 +60,14 @@ func (s *neo4jStore) createIndex(req *model.WriteRequest) error {
 		defer tx.Close()
 
 		query := "CREATE INDEX IF NOT EXISTS FOR (n:%s) ON (n.external_id)"
-		_, err = tx.Run(fmt.Sprintf(query, req.IntegrationItem.Labels[0]), nil)
+		_, err = tx.Run(fmt.Sprintf(query, req.Function.Params[0]), nil)
 		if err != nil {
 			return err
 		}
 
 		return tx.Commit()
 	}
-	return fmt.Errorf("invalid function: ", req.IntegrationItem.Function)
+	return fmt.Errorf("invalid function: ", req.Function.Type)
 }
 
 func (s *neo4jStore) Write(req *model.WriteRequest) error {
@@ -83,14 +83,14 @@ func (s *neo4jStore) Write(req *model.WriteRequest) error {
 	fmt.Println("creating label")
 	var query string
 
-	if req.IntegrationItem.Function == CREATE_NODE {
+	if req.Function.Type == CREATE_NODE {
 		query = "UNWIND $list AS item MERGE (x:%s {external_id: item.external_id}) SET x = item"
-		query = fmt.Sprintf(query, req.IntegrationItem.Labels[0])
-	} else if req.IntegrationItem.Function == CREATE_RELATION {
-		query = "UNWIND $list AS item MATCH (a:%s {external_id: item.a_id}) MATCH (b:%s {external_id: item.b_id}) MERGE (b)-[:%s]->(a)"
-		query = fmt.Sprintf(query, req.IntegrationItem.Labels[0], req.IntegrationItem.Labels[1], req.IntegrationItem.Labels[0])
+		query = fmt.Sprintf(query, req.Function.Params[0])
+	} else if req.Function.Type == CREATE_RELATION {
+		query = "UNWIND $list AS item MATCH (a:%s {external_id: item.a_id}) MATCH (b:%s {external_id: item.b_id}) MERGE (a)-[:%s]->(b)"
+		query = fmt.Sprintf(query, req.Function.Params[0], req.Function.Params[2], req.Function.Params[1])
 	} else {
-		return fmt.Errorf("invalid function: ", req.IntegrationItem.Function)
+		return fmt.Errorf("invalid function: ", req.Function.Type)
 	}
 	result, err := tx.Run(query, map[string]interface{}{"list": req.Data})
 	if err != nil {

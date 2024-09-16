@@ -1,0 +1,9 @@
+[{{ $length := len .buckets }}{{ $index := 0 }}
+{{ range .buckets }}
+{{ $index = add $index 1 }}
+{
+  "a_id": "{{ index .location "project_id" }}",
+  "b_id": "{{ index . "id" }}"
+}{{ if lt $index $length }},{{ end }}
+{{ end }}
+]

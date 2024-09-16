@@ -1,0 +1,13 @@
+[{{ $length := len .buckets }}{{ $index := 0 }}
+{{ range .buckets }}
+{{ $index = add $index 1 }}
+{
+  "external_id": "{{ index . "id" }}",
+  "name": "{{ index . "name" }}",
+  
+  "created_at": "{{ index . "created-at" }}",
+  "updated_at": "{{ index . "updated-at" }}",
+  "resource_name": "{{ index . "resource_name" }}"
+}{{ if lt $index $length }},{{ end }}
+{{ end }}
+]
