@@ -14,6 +14,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/srahul3/cypher-transform/internal/model"
+	"github.com/srahul3/cypher-transform/internal/recon"
 	"github.com/srahul3/cypher-transform/internal/store"
 )
 
@@ -117,7 +118,7 @@ func generateHCPToken() (string, error) {
 	return result["access_token"].(string), nil
 }
 
-func execute(store store.Store, integrationItem *model.IntegrationItem) error {
+func execute(igSynchronizer *IGSynchronizer, integrationItem *model.IntegrationItem, updateData func(data *(map[string]interface{}))) error {
 	data := map[string]interface{}{}
 
 	// get the data from integrationItem.url
@@ -142,6 +143,8 @@ func execute(store store.Store, integrationItem *model.IntegrationItem) error {
 			return err
 		}
 	}
+
+	updateData(&data)
 
 	funcMap := template.FuncMap{
 		"sub": func(a, b int) int {
@@ -184,14 +187,64 @@ func execute(store store.Store, integrationItem *model.IntegrationItem) error {
 		fmt.Println("Unmarshaled Output:")
 		fmt.Printf("%+v\n", unmarshaledOutput)
 
-		writeRequest := &model.WriteRequest{
-			Function: &function,
-			Data:     &unmarshaledOutput,
+		toDelete, toCreate, err := igSynchronizer.Reconciler.Reconcile(
+			integrationItem,
+			function,
+			unmarshaledOutput,
+		)
+
+		if err != nil {
+			return err
 		}
 
-		store.Write(writeRequest)
+		fmt.Println("Delete:" + fmt.Sprint(toDelete))
+		fmt.Println("Create:" + fmt.Sprint(toCreate))
+
+		writeRequest := &model.WriteRequest{
+			Function: &function,
+			ToCreate: &toCreate,
+			ToDelete: &toDelete,
+		}
+
+		err = igSynchronizer.Store.Write(writeRequest)
+		if err != nil {
+			return err
+		}
+
+		err = igSynchronizer.Reconciler.Commit(
+			integrationItem,
+			function,
+			toDelete,
+			toCreate)
+
+		if err != nil {
+			return err
+		}
+
+		// test the commit
+		toDelete, toCreate, err = igSynchronizer.Reconciler.Reconcile(
+			integrationItem,
+			function,
+			unmarshaledOutput,
+		)
+		if err != nil {
+			return err
+		}
+
+		// expecting empty toDelete and toCreate
+		if function.Type == store.CREATE_NODE && (len(toDelete) != 0 || len(toCreate) != 0) {
+			return fmt.Errorf("commit failed")
+		}
+
 	}
 	return nil
+}
+
+type IGSynchronizer struct {
+	Store      store.Store
+	Reconciler *recon.Reconciler
+
+	HCPToken string
 }
 
 func main() {
@@ -213,14 +266,30 @@ func main() {
 		panic(err)
 	}
 
+	// common token for all HCP integrations
 	token, err := generateHCPToken()
 	if err != nil {
 		panic(err)
 	}
 
+	igSynchronizer := &IGSynchronizer{
+		Store:      store,
+		Reconciler: recon.NewReconciler(),
+		HCPToken:   token,
+	}
+
 	for _, item := range integration {
 		item.Token = token
-		err := execute(store, item)
+		err := execute(igSynchronizer, item, func(data *(map[string]interface{})) {})
+		if err != nil {
+			panic(err)
+		}
+
+		// test by removing data
+		err = execute(igSynchronizer, item, func(data *(map[string]interface{})) {
+			(*data)["buckets"] = []string{}
+			fmt.Println("Removing data")
+		})
 		if err != nil {
 			panic(err)
 		}

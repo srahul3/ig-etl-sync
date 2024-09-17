@@ -92,7 +92,7 @@ func (s *neo4jStore) Write(req *model.WriteRequest) error {
 	} else {
 		return fmt.Errorf("invalid function: ", req.Function.Type)
 	}
-	result, err := tx.Run(query, map[string]interface{}{"list": req.Data})
+	result, err := tx.Run(query, map[string]interface{}{"list": req.ToCreate})
 	if err != nil {
 		return err
 	}
@@ -111,6 +111,38 @@ func (s *neo4jStore) Write(req *model.WriteRequest) error {
 	d := summary.ResultAvailableAfter()
 	// set the duration
 	req.Duration = &d
+
+	// delete the items
+	if req.Function.Type == CREATE_NODE {
+		query = "UNWIND $list AS item MATCH (x:%s {external_id: item.external_id}) DETACH DELETE x"
+		query = fmt.Sprintf(query, req.Function.Params[0])
+	} else if req.Function.Type == CREATE_RELATION {
+		query = ""
+	} else {
+		return fmt.Errorf("invalid function: ", req.Function.Type)
+	}
+
+	if query != "" {
+		result, err = tx.Run(query, map[string]interface{}{"list": req.ToDelete})
+		if err != nil {
+			return err
+		}
+
+		// iterate over the result
+		for result.Next() {
+			record := result.Record()
+			fmt.Printf("Deleted Item with ID: %d\n", record.GetByIndex(0))
+		}
+
+		summary, e = result.Consume()
+		if e != nil {
+			return e
+		}
+
+		d += summary.ResultAvailableAfter()
+		// set the duration
+		req.Duration = &d
+	}
 
 	// commit the transaction
 	return tx.Commit()

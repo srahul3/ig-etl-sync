@@ -1,10 +1,14 @@
 package model
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type WriteRequest struct {
 	Function *Function
-	Data     *[]map[string]interface{}
+	ToCreate *[]map[string]interface{}
+	ToDelete *[]map[string]interface{}
 
 	Duration *time.Duration
 }
@@ -24,4 +28,17 @@ type Function struct {
 	Type          string
 	Params        []string
 	TransformPath string
+}
+
+func (f *Function) GetKey() string {
+	return f.Type + ":" + f.Name
+}
+
+func (i *IntegrationItem) GetKey() (string, error) {
+	switch i.Type {
+	case "http":
+		return i.Type + ":" + i.Url, nil
+	default:
+		return "", fmt.Errorf("invalid type: %s", i.Type)
+	}
 }
